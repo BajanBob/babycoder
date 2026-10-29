@@ -1,0 +1,1024 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+</head>
+<body>
+<title>Coder for Babies</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: sticky "GPS" next-turn bar on top; route of building blocks on the left, the active block's workspace on the right; one column on phones. */
+:root {
+  --bg: #f2f5fb; --surface: #ffffff; --sunk: #e9eef8; --ink: #1b2440; --muted: #59637f; --line: #d6ddec;
+  --accent: #2f5bea; --accent-ink: #ffffff; --sun: #ffc93c; --sun-ink: #3a2a00; --berry: #d93f4c; --leaf: #1f9a5f;
+  --berry-soft: #fde8ea; --leaf-soft: #e3f6ec; --sun-soft: #fff4d3; --accent-soft: #e6ecff;
+  --font-display: "Fredoka", "Baloo 2", "Trebuchet MS", system-ui, sans-serif;
+  --font-body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-code: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #11162a; --surface: #1a2137; --sunk: #141a2e; --ink: #e9edf7; --muted: #a0aac6; --line: #2c3654;
+  --accent: #86a3ff; --accent-ink: #0d1430; --sun: #ffd25e; --sun-ink: #2b1f00; --berry: #ff7781; --leaf: #52cc91;
+  --berry-soft: #3a1c26; --leaf-soft: #163428; --sun-soft: #3a3016; --accent-soft: #212d55; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #11162a; --surface: #1a2137; --sunk: #141a2e; --ink: #e9edf7; --muted: #a0aac6; --line: #2c3654;
+  --accent: #86a3ff; --accent-ink: #0d1430; --sun: #ffd25e; --sun-ink: #2b1f00; --berry: #ff7781; --leaf: #52cc91;
+  --berry-soft: #3a1c26; --leaf-soft: #163428; --sun-soft: #3a3016; --accent-soft: #212d55; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.5 var(--font-body); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+h1, h2, h3 { font-family: var(--font-display); text-wrap: balance; margin: 0; letter-spacing: 0.005em; }
+a { color: var(--accent); }
+:focus-visible { outline: 3px solid var(--sun); outline-offset: 2px; }
+button, input, select, textarea { font: inherit; color: inherit; }
+code, kbd, .mono { font-family: var(--font-code); font-size: 0.88em; }
+
+.wrap { max-width: 1240px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- top bar + GPS ---------- */
+.top { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--surface); border-bottom: 1px solid var(--line); }
+.top .wrap { padding-block: 10px; display: grid; gap: 10px; }
+.brandrow { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.logo { display: flex; align-items: center; gap: 10px; font: 700 21px/1 var(--font-display); }
+.blocks { display: inline-grid; grid-template-columns: repeat(3, 12px); gap: 3px; }
+.blocks i { width: 12px; height: 12px; border-radius: 3px; display: block; }
+.progress { margin-left: auto; display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--muted); }
+.meter { width: 140px; height: 10px; border-radius: 6px; background: var(--sunk); overflow: hidden; border: 1px solid var(--line); }
+.meter b { display: block; height: 100%; background: var(--leaf); width: 0; transition: width .3s; }
+
+.gps { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 14px; align-items: center; background: var(--accent-soft); border: 2px solid var(--accent); border-radius: 14px; padding: 12px 14px; }
+.gps .arrow { width: 44px; height: 44px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; }
+.gps .lbl { font: 600 12px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.gps h2 { font-size: 20px; line-height: 1.2; }
+.gps p { margin: 2px 0 0; font-size: 14.5px; color: var(--muted); }
+.gps .acts { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 42px; padding: 0 16px; border-radius: 10px; border: 2px solid var(--line); background: var(--surface); font-weight: 700; cursor: pointer; text-decoration: none; color: var(--ink); white-space: nowrap; }
+.btn:hover { border-color: var(--accent); }
+.btn.go { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.done { background: var(--leaf); border-color: var(--leaf); color: #fff; }
+.btn.warn { background: var(--berry); border-color: var(--berry); color: #fff; }
+.btn.sun { background: var(--sun); border-color: var(--sun); color: var(--sun-ink); }
+.btn.small { min-height: 34px; padding: 0 12px; font-size: 14px; }
+.btn[disabled], .btn[aria-disabled="true"] { opacity: .45; cursor: not-allowed; pointer-events: none; }
+.btn svg { flex: none; }
+
+/* ---------- main grid ---------- */
+main.wrap { padding-block: 18px 40px; display: grid; grid-template-columns: 300px minmax(0, 1fr); gap: 20px; align-items: start; }
+.route { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 160px); display: grid; gap: 6px; }
+.route h3 { font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--muted); margin: 0 0 4px 4px; }
+.stop { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; text-align: left; padding: 7px 10px 7px 7px; border-radius: 10px; border: 2px solid transparent; background: transparent; cursor: pointer; }
+.stop:hover { background: var(--surface); }
+.stop[aria-current="step"] { background: var(--surface); border-color: var(--accent); }
+.stop .n { width: 34px; height: 34px; border-radius: 8px; display: grid; place-items: center; font: 700 15px var(--font-display); background: var(--sunk); color: var(--muted); border: 2px solid var(--line); }
+.stop.is-done .n { background: var(--leaf); color: #fff; border-color: var(--leaf); }
+.stop.is-next .n { background: var(--sun); color: var(--sun-ink); border-color: var(--sun); }
+.stop .t { font-weight: 700; font-size: 14.5px; line-height: 1.25; }
+.stop .s { font-size: 12.5px; color: var(--muted); }
+.stop .tag { font-size: 11px; font-weight: 700; color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 22px; min-width: 0; display: grid; gap: 18px; }
+.panel header { display: grid; gap: 4px; }
+.panel .eyebrow { font: 600 12.5px var(--font-display); letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.panel h2 { font-size: 28px; line-height: 1.15; }
+.panel .lead { margin: 0; color: var(--muted); max-width: 64ch; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.field { display: grid; gap: 6px; min-width: 0; }
+.field label { font-weight: 700; font-size: 14.5px; }
+.field .hint { font-size: 13px; color: var(--muted); }
+input[type=text], input:not([type]), select, textarea { width: 100%; min-height: 44px; padding: 8px 12px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); }
+textarea { resize: vertical; }
+input:focus, select:focus, textarea:focus { border-color: var(--accent); outline: none; }
+.radios { display: flex; gap: 8px; flex-wrap: wrap; }
+.radio { display: flex; gap: 8px; align-items: flex-start; padding: 10px 12px; border: 2px solid var(--line); border-radius: 10px; cursor: pointer; flex: 1 1 180px; min-width: 0; background: var(--bg); }
+.radio:has(input:checked) { border-color: var(--accent); background: var(--accent-soft); }
+.radio input { margin-top: 4px; accent-color: var(--accent); }
+.radio b { display: block; }
+.radio span { font-size: 13px; color: var(--muted); }
+
+.callout { border-radius: 12px; padding: 12px 14px; font-size: 14.5px; border: 2px solid; }
+.callout.info { background: var(--accent-soft); border-color: var(--accent); }
+.callout.good { background: var(--leaf-soft); border-color: var(--leaf); }
+.callout.bad { background: var(--berry-soft); border-color: var(--berry); }
+.callout.tip { background: var(--sun-soft); border-color: var(--sun); }
+.callout b:first-child { margin-right: 4px; }
+
+.drop { border: 3px dashed var(--line); border-radius: 14px; padding: 26px 16px; text-align: center; background: var(--bg); cursor: pointer; display: grid; gap: 6px; place-items: center; }
+.drop.over { border-color: var(--accent); background: var(--accent-soft); }
+.drop strong { font: 600 19px var(--font-display); }
+.drop span { color: var(--muted); font-size: 14px; }
+
+.files { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.files li { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+.files .p { font-family: var(--font-code); font-size: 13.5px; overflow-wrap: anywhere; }
+.files .z { font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.files li.has-err { border-color: var(--berry); background: var(--berry-soft); }
+.chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; border: 1.5px solid currentColor; }
+.chip.ex { color: var(--muted); } .chip.err { color: var(--berry); } .chip.ok { color: var(--leaf); } .chip.warn { color: #b7791f; }
+
+pre.code { margin: 0; padding: 12px 14px; background: var(--sunk); border: 1px solid var(--line); border-radius: 10px; overflow-x: auto; font: 13px/1.55 var(--font-code); }
+.cmds { display: grid; gap: 10px; }
+.cmd { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: start; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); }
+.cmd code { display: block; overflow-x: auto; white-space: pre; font-size: 13.5px; padding: 2px 0; }
+.cmd p { margin: 0; grid-column: 1 / -1; font-size: 13.5px; color: var(--muted); }
+.cmd .web { grid-column: 1 / -1; font-size: 13.5px; }
+
+.issues { display: grid; gap: 8px; }
+.issue { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 12px; border-radius: 10px; border: 2px solid var(--line); background: var(--bg); text-align: left; cursor: pointer; width: 100%; }
+.issue.error { border-color: var(--berry); }
+.issue .where { font-family: var(--font-code); font-size: 13px; color: var(--muted); }
+.issue[aria-pressed="true"] { background: var(--accent-soft); }
+
+.fixbox { border: 2px solid var(--berry); border-radius: 14px; padding: 14px; display: grid; gap: 12px; background: var(--surface); }
+.fixbox h3 { font-size: 19px; }
+.editor { display: grid; grid-template-columns: auto minmax(0, 1fr); border: 2px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--bg); max-height: 420px; }
+.gutter { margin: 0; padding: 10px 8px; text-align: right; font: 13px/1.6 var(--font-code); color: var(--muted); background: var(--sunk); user-select: none; overflow: hidden; }
+.gutter span { display: block; padding: 0 4px; border-radius: 4px; }
+.gutter span.hot { background: var(--berry); color: #fff; }
+.editor textarea { border: 0; border-radius: 0; min-height: 260px; font: 13px/1.6 var(--font-code); padding: 10px; white-space: pre; overflow: auto; background: transparent; resize: none; }
+
+.lock { display: flex; gap: 10px; align-items: center; }
+.svc { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.svc a { display: grid; gap: 2px; padding: 12px; border: 2px solid var(--line); border-radius: 12px; text-decoration: none; color: var(--ink); background: var(--bg); }
+.svc a:hover { border-color: var(--accent); }
+.svc b { font-family: var(--font-display); font-size: 16.5px; }
+.svc span { font-size: 13px; color: var(--muted); }
+.plats { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; }
+.plat { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); }
+.plat b { display: block; font-family: var(--font-display); }
+.plat span { font-size: 13px; color: var(--muted); font-family: var(--font-code); }
+.toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 10px; font-weight: 700; z-index: 20; max-width: calc(100vw - 32px); }
+details.tools { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px 18px; }
+details.tools summary { cursor: pointer; font: 600 19px var(--font-display); }
+details.tools[open] summary { margin-bottom: 12px; }
+.muted { color: var(--muted); }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+
+@media (max-width: 900px) {
+  main.wrap { grid-template-columns: 1fr; }
+  .route { position: static; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .route h3 { grid-column: 1 / -1; }
+  .stop { grid-template-columns: 30px minmax(0, 1fr); }
+  .stop .tag { display: none; }
+  .stop .n { width: 30px; height: 30px; }
+  .stop .s { display: none; }
+}
+@media (max-width: 620px) {
+  .gps { grid-template-columns: auto minmax(0, 1fr); }
+  .gps .acts { grid-column: 1 / -1; justify-content: stretch; }
+  .gps .acts .btn { flex: 1; }
+  .grid2 { grid-template-columns: 1fr; }
+  .panel { padding: 16px; }
+  .panel h2 { font-size: 23px; }
+  .progress .meter { width: 80px; }
+  .files li { grid-template-columns: minmax(0, 1fr) auto; }
+  .files li .z { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brandrow">
+      <div class="logo"><span class="blocks" aria-hidden="true"><i style="background:var(--accent)"></i><i style="background:var(--sun)"></i><i style="background:var(--berry)"></i></span>Coder for Babies</div>
+      <div class="progress"><span id="progTxt">Step 1 of 11</span><span class="meter" aria-hidden="true"><b id="progBar"></b></span></div>
+    </div>
+    <section class="gps" aria-live="polite" aria-label="Your next step">
+      <div class="arrow" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24"><path d="M12 2 20 21 12 16 4 21Z" fill="currentColor"/></svg></div>
+      <div style="min-width:0"><div class="lbl" id="gpsLbl">Next turn</div><h2 id="gpsTitle">Sign in to GitHub</h2><p id="gpsText"></p></div>
+      <div class="acts" id="gpsActs"></div>
+    </section>
+  </div>
+</header>
+
+<main class="wrap">
+  <nav class="route" aria-label="Your route"><h3>Your route</h3><div id="route" style="display:contents"></div></nav>
+  <div style="display:grid;gap:18px;min-width:0">
+    <section class="panel" id="panel" aria-live="polite"></section>
+    <details class="tools" id="toolbox">
+      <summary>Git toolbox: every command, explained</summary>
+      <div id="toolboxBody"></div>
+    </details>
+  </div>
+</main>
+<div class="toast" id="toast" role="status" hidden></div>
+
+<script type="text/plain" id="tpl-app">name: Build all platforms
+# Builds Windows, macOS, Linux, Raspberry Pi, Android and iOS when you publish a release.
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+permissions:
+  contents: write
+jobs:
+  desktop:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-latest, args: "--linux AppImage deb --x64" }
+          - { name: raspberry-pi, os: ubuntu-latest, args: "--linux AppImage deb --arm64 --armv7l" }
+          - { name: windows, os: windows-latest, args: "--win nsis --x64" }
+          - { name: macos, os: macos-latest, args: "--mac dmg --universal" }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npx electron-builder ${{ matrix.args }} --publish never
+        env: { CSC_IDENTITY_AUTO_DISCOVERY: "false" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.name }}
+          path: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.exe
+            dist/*.dmg
+      - if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.AppImage
+            dist/*.deb
+            dist/*.exe
+            dist/*.dmg
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 21 }
+      - uses: android-actions/setup-android@v3
+      - run: npm install --no-audit --no-fund
+      - run: npx cap add android && npx cap sync android
+      - run: cd android && chmod +x gradlew && ./gradlew assembleDebug --no-daemon
+      - run: cp android/app/build/outputs/apk/debug/app-debug.apk __SLUG__-android.apk
+      - uses: actions/upload-artifact@v4
+        with: { name: android, path: __SLUG__-android.apk }
+      - if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with: { files: __SLUG__-android.apk }
+  ios:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install --no-audit --no-fund
+      - run: npx cap add ios --packagemanager SPM && npx cap sync ios
+      - run: |
+          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release -sdk iphoneos \
+            -archivePath build/App.xcarchive CODE_SIGNING_ALLOWED=NO archive
+          mkdir -p Payload && cp -R build/App.xcarchive/Products/Applications/App.app Payload/
+          zip -qry __SLUG__-ios-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with: { name: ios, path: __SLUG__-ios-unsigned.ipa }
+      - if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with: { files: __SLUG__-ios-unsigned.ipa }
+</script>
+<script type="text/plain" id="tpl-rust">name: Build all platforms
+# Builds your Rust program for Windows, macOS, Linux and Raspberry Pi when you publish a release.
+on:
+  release:
+    types: [published]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { target: x86_64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: aarch64-unknown-linux-gnu, os: ubuntu-latest }
+          - { target: armv7-unknown-linux-gnueabihf, os: ubuntu-latest }
+          - { target: x86_64-pc-windows-msvc, os: windows-latest }
+          - { target: universal-apple-darwin, os: macos-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: taiki-e/upload-rust-binary-action@v1
+        with:
+          bin: __SLUG__
+          target: ${{ matrix.target }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+</script>
+<script type="text/plain" id="tpl-python">name: Build all platforms
+# Turns main.py into a program for Windows, macOS, Linux and Raspberry Pi when you publish a release.
+on:
+  workflow_dispatch:
+  release:
+    types: [published]
+permissions:
+  contents: write
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: linux, os: ubuntu-latest }
+          - { name: raspberry-pi, os: ubuntu-24.04-arm }
+          - { name: windows, os: windows-latest }
+          - { name: macos, os: macos-latest }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install pyinstaller
+      - run: pip install -r requirements.txt
+        if: hashFiles('requirements.txt') != ''
+      - run: pyinstaller --onefile --name __SLUG__-${{ matrix.name }} main.py
+      - uses: actions/upload-artifact@v4
+        with: { name: "${{ matrix.name }}", path: dist/* }
+      - if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with: { files: dist/* }
+</script>
+<script type="text/plain" id="tpl-web">name: Publish website
+# Puts your website online with GitHub Pages every time you push to main.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: . }
+      - id: deployment
+        uses: actions/deploy-pages@v4
+</script>
+
+<script>
+(function () {
+  /* =========================================================
+     Coder for Babies — modular step engine.
+     Each module in STEPS has: id, title, short, isDone(), link(), render().
+     Add a module to the list to add a stop to the route.
+     ========================================================= */
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const store = {
+    get(k, d) { try { const v = localStorage.getItem('cfb.' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+    set(k, v) { try { localStorage.setItem('cfb.' + k, JSON.stringify(v)); } catch (e) { /* storage full or blocked */ } },
+  };
+
+  /* ---------- example project so the first view shows the whole flow ---------- */
+  const EXAMPLE_FILES = [
+    { path: 'index.html', example: true, text: '<!doctype html>\n<html>\n<head>\n  <meta charset="utf-8">\n  <title>Hello Baby</title>\n  <link rel="stylesheet" href="style.css">\n</head>\n<body>\n  <h1 id="hi">Hello!</h1>\n  <button id="btn">Say hi</button>\n  <script src="app.js"><\/script>\n</body>\n</html>\n' },
+    { path: 'app.js', example: true, text: "const btn = document.getElementById('btn');\nconst hi = document.getElementById('hi');\n\nbtn.addEventListener('click', () => {\n  hi.textContent = 'Hi there, coder!';\n  consle.log('button clicked');\n});\n" },
+    { path: 'style.css', example: true, text: 'body {\n  font-family: system-ui, sans-serif;\n  text-align: center;\n  padding: 40px;\n}\n\nbutton {\n  font-size: 20px;\n  padding: 10px 20px;\n}\n' },
+  ];
+  EXAMPLE_FILES.forEach((f) => { f.size = new Blob([f.text]).size; });
+
+  const S = Object.assign({
+    owner: '', name: 'Hello Baby', repo: 'hello-baby', desc: 'My first app, built with Coder for Babies', vis: 'public', type: 'app', branch: 'main',
+    files: EXAMPLE_FILES, done: {}, version: '1.0.0', notes: '', review: null, releaseMode: 'prerelease', current: null, intoWww: true,
+  }, store.get('state', {}));
+  const save = () => {
+    const copy = Object.assign({}, S);
+    const total = S.files.reduce((n, f) => n + (f.text ? f.text.length : 0), 0);
+    if (total > 2500000) copy.files = S.files.map((f) => Object.assign({}, f, { text: null, dropped: true }));
+    store.set('state', copy);
+  };
+
+  const TYPES = {
+    app: { label: 'App for every device', what: 'A web app (HTML, CSS, JavaScript) packaged for Windows, macOS, Linux, Raspberry Pi, Android and iOS.', tpl: 'tpl-app', platforms: ['windows', 'macos', 'linux', 'pi', 'android', 'ios'] },
+    rust: { label: 'Rust program', what: 'A Rust project with Cargo.toml, built for Windows, macOS, Linux and Raspberry Pi.', tpl: 'tpl-rust', platforms: ['windows', 'macos', 'linux', 'pi'] },
+    python: { label: 'Python program', what: 'A main.py script turned into a program for Windows, macOS, Linux and Raspberry Pi.', tpl: 'tpl-python', platforms: ['windows', 'macos', 'linux', 'pi'] },
+    web: { label: 'Website', what: 'A website published free on GitHub Pages.', tpl: 'tpl-web', platforms: ['web'] },
+  };
+  const PLATFORM = {
+    windows: ['Windows', '.exe installer'], macos: ['macOS', '.dmg'], linux: ['Linux', '.AppImage, .deb'], pi: ['Raspberry Pi', 'arm64 / armv7 .deb'],
+    android: ['Android', '.apk'], ios: ['iPhone / iPad', 'unsigned .ipa'], web: ['Web', 'username.github.io/repo'],
+  };
+
+  /* ---------- GitHub link builder: the "GPS" ---------- */
+  const enc = encodeURIComponent;
+  const encPath = (p) => p.split('/').map(enc).join('/');
+  const qs = (o) => Object.entries(o).filter(([, v]) => v !== undefined && v !== '').map(([k, v]) => k + '=' + enc(v)).join('&');
+  const tag = () => 'v' + S.version;
+  const GH = {
+    base: 'https://github.com',
+    repo: () => `https://github.com/${enc(S.owner || 'YOUR-NAME')}/${enc(S.repo || 'my-project')}`,
+    newRepo: () => 'https://github.com/new?' + qs({ name: S.repo, description: S.desc, visibility: S.vis, owner: S.owner }),
+    upload: () => `${GH.repo()}/upload/${S.branch}`,
+    newFile: (path, value) => `${GH.repo()}/new/${S.branch}?` + qs({ filename: path, value }),
+    edit: (path) => `${GH.repo()}/edit/${S.branch}/${encPath(path)}`,
+    del: (path) => `${GH.repo()}/delete/${S.branch}/${encPath(path)}`,
+    blob: (path, line) => `${GH.repo()}/blob/${S.branch}/${encPath(path)}${line ? '#L' + line : ''}`,
+    tree: () => `${GH.repo()}/tree/${S.branch}`,
+    commits: () => `${GH.repo()}/commits/${S.branch}`,
+    branches: () => `${GH.repo()}/branches`,
+    compare: () => `${GH.repo()}/compare`,
+    tags: () => `${GH.repo()}/tags`,
+    actions: () => `${GH.repo()}/actions`,
+    workflow: () => `${GH.repo()}/actions/workflows/build.yml`,
+    releaseNew: () => `${GH.repo()}/releases/new?` + qs({ tag: tag(), target: S.branch, title: `${S.name} ${tag()}`, body: releaseNotes(), prerelease: S.releaseMode === 'prerelease' ? '1' : undefined }),
+    releases: () => `${GH.repo()}/releases`,
+    releaseTag: () => `${GH.repo()}/releases/tag/${enc(tag())}`,
+    access: () => `${GH.repo()}/settings/access`,
+    pages: () => `${GH.repo()}/settings/pages`,
+    secrets: () => `${GH.repo()}/settings/secrets/actions`,
+    git: () => `https://github.com/${S.owner || 'YOUR-NAME'}/${S.repo || 'my-project'}.git`,
+  };
+  const MAX_URL = 7000;
+  const committedPath = (p) => (S.type === 'app' && S.intoWww && !/^(www\/|package\.json$|capacitor\.config\.json$|electron\/|\.github\/)/.test(p) ? 'www/' + p : p);
+
+  /* ---------- helpers ---------- */
+  const slug = (s) => String(s || '').trim().toLowerCase().replace(/[^a-z0-9._-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 90);
+  const semverOk = (v) => /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(v);
+  const hash = (s) => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return (h >>> 0).toString(16); };
+  const filesHash = () => hash(S.files.map((f) => f.path + '\n' + (f.text || f.size)).join('\u0000'));
+  const fmtSize = (n) => (n < 1024 ? n + ' B' : n < 1048576 ? (n / 1024).toFixed(1) + ' KB' : (n / 1048576).toFixed(1) + ' MB');
+  const approved = () => !!(S.review && S.review.verdict === 'pass' && S.review.hash === filesHash());
+  function toast(msg) { const t = $('toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast.t); toast.t = setTimeout(() => { t.hidden = true; }, 2200); }
+  async function copy(text, btn) {
+    try { await navigator.clipboard.writeText(text); toast('Copied'); }
+    catch (e) {
+      const ta = document.createElement('textarea'); ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0'; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); toast('Copied'); } catch (_) { toast('Select the text and copy it yourself'); }
+      ta.remove();
+    }
+  }
+  const ext = (p) => (p.split('.').pop() || '').toLowerCase();
+  const TEXT_EXT = new Set(['html', 'htm', 'css', 'js', 'mjs', 'cjs', 'ts', 'tsx', 'jsx', 'json', 'md', 'txt', 'yml', 'yaml', 'toml', 'rs', 'py', 'sh', 'bat', 'ps1', 'xml', 'svg', 'csv', 'ini', 'cfg', 'env', 'gitignore', 'lock', 'java', 'kt', 'swift', 'c', 'h', 'cpp', 'go', 'rb', 'php', 'vue', 'svelte']);
+  function commitMessage() {
+    const real = S.files.filter((f) => !f.example);
+    const list = (real.length ? real : S.files).map((f) => f.path);
+    if (!list.length) return 'Initial commit';
+    return list.length <= 3 ? `Add ${list.join(', ')}` : `Add ${list.length} files (${list.slice(0, 3).join(', ')} and more)`;
+  }
+  function releaseNotes() {
+    const lines = [`## ${S.name} ${tag()}`, '', S.desc || '', ''];
+    if (S.notes.trim()) lines.push(S.notes.trim(), '');
+    if (S.review && S.review.verdict === 'pass') lines.push(`Checked by Claude: ${S.review.summary || 'no errors found'}`, '');
+    lines.push('### Downloads', ...TYPES[S.type].platforms.map((p) => `- ${PLATFORM[p][0]}: ${PLATFORM[p][1]}`));
+    return lines.join('\n');
+  }
+
+  /* =========================================================
+     MODULES
+     ========================================================= */
+  const STEPS = [
+    {
+      id: 'account', title: 'Sign in to GitHub', short: 'Your GitHub name',
+      isDone: () => !!S.owner,
+      gps: () => ({ text: 'Type your GitHub username below. No account yet? Make one first; it is free.', link: ['Open GitHub sign-in', 'https://github.com/login'] }),
+      render: () => `
+        <header><div class="eyebrow">Step 1</div><h2>Who are you on GitHub?</h2>
+          <p class="lead">GitHub is the online home for your code. Every link Coder for Babies makes points to your account, so it needs your username.</p></header>
+        <div class="field"><label for="fOwner">GitHub username</label>
+          <input id="fOwner" value="${esc(S.owner)}" placeholder="for example BajanBob" autocomplete="username" spellcheck="false">
+          <span class="hint">It is the name in your profile link: github.com/<b>username</b></span></div>
+        <div class="row">
+          <a class="btn go" href="https://github.com/login" target="_blank" rel="noopener">Sign in to GitHub</a>
+          <a class="btn" href="https://github.com/signup" target="_blank" rel="noopener">Make a free account</a>
+        </div>`,
+      bind: () => { $('fOwner').addEventListener('input', (e) => { S.owner = e.target.value.trim().replace(/^@/, ''); refresh(false); }); },
+    },
+    {
+      id: 'project', title: 'Name your project', short: 'Name, description, kind',
+      isDone: () => !!(S.name.trim() && S.repo),
+      gps: () => ({ text: 'Give the project a name and a one-line description, then pick what you are building.' }),
+      render: () => `
+        <header><div class="eyebrow">Step 2</div><h2>Name your project</h2>
+          <p class="lead">The repository name is made from your project name automatically. Use letters, numbers and dashes.</p></header>
+        <div class="grid2">
+          <div class="field"><label for="fName">Project name</label><input id="fName" value="${esc(S.name)}" placeholder="My Cool App"></div>
+          <div class="field"><label for="fRepo">Repository name</label><input id="fRepo" value="${esc(S.repo)}" spellcheck="false"><span class="hint">Your link: github.com/${esc(S.owner || 'you')}/<b id="repoEcho">${esc(S.repo)}</b></span></div>
+        </div>
+        <div class="field"><label for="fDesc">Description</label><input id="fDesc" value="${esc(S.desc)}" placeholder="What does it do, in one sentence?"></div>
+        <div class="field"><label>Who can see it?</label>
+          <div class="radios">
+            <label class="radio"><input type="radio" name="vis" value="public" ${S.vis === 'public' ? 'checked' : ''}><div><b>Public</b><span>Anyone can see it. Free builds for every platform.</span></div></label>
+            <label class="radio"><input type="radio" name="vis" value="private" ${S.vis === 'private' ? 'checked' : ''}><div><b>Private</b><span>Only you and people you invite. Builds use your free minutes.</span></div></label>
+          </div></div>
+        <div class="field"><label>What are you building?</label>
+          <div class="radios">${Object.entries(TYPES).map(([k, t]) => `<label class="radio"><input type="radio" name="ptype" value="${k}" ${S.type === k ? 'checked' : ''}><div><b>${t.label}</b><span>${t.what}</span></div></label>`).join('')}</div></div>`,
+      bind: () => {
+        let repoTouched = slug(S.name) !== S.repo;
+        $('fName').addEventListener('input', (e) => { S.name = e.target.value; if (!repoTouched) { S.repo = slug(S.name); $('fRepo').value = S.repo; $('repoEcho').textContent = S.repo; } refresh(false); });
+        $('fRepo').addEventListener('input', (e) => { repoTouched = true; S.repo = slug(e.target.value); $('repoEcho').textContent = S.repo; refresh(false); });
+        $('fRepo').addEventListener('blur', (e) => { e.target.value = S.repo; });
+        $('fDesc').addEventListener('input', (e) => { S.desc = e.target.value; refresh(false); });
+        document.querySelectorAll('input[name=vis]').forEach((r) => r.addEventListener('change', () => { S.vis = r.value; refresh(false); }));
+        document.querySelectorAll('input[name=ptype]').forEach((r) => r.addEventListener('change', () => { S.type = r.value; refresh(false); }));
+      },
+    },
+    {
+      id: 'create', title: 'Create the repository', short: 'One click on GitHub', manual: true,
+      gps: () => ({ text: `GitHub opens with “${S.repo}” already filled in. Leave “Add a README” off and press Create repository.`, link: ['Create “' + S.repo + '” on GitHub', GH.newRepo()] }),
+      render: () => `
+        <header><div class="eyebrow">Step 3</div><h2>Create the repository</h2>
+          <p class="lead">A repository is a folder on GitHub that remembers every change. This link opens GitHub with your name, description and visibility already filled in.</p></header>
+        <div class="row"><a class="btn go" href="${esc(GH.newRepo())}" target="_blank" rel="noopener">Create “${esc(S.repo)}” on GitHub</a></div>
+        <div class="callout tip"><b>Tip:</b> leave “Add a README file” unticked. An empty repository is easiest for the next step.</div>
+        <div class="field"><label>Your repository will live at</label><code class="mono">${esc(GH.repo())}</code></div>
+        ${doneButton('create', 'I created it')}`,
+    },
+    {
+      id: 'files', title: 'Drop your files', short: 'Drag in your code',
+      isDone: () => S.files.some((f) => !f.example),
+      gps: () => ({ text: S.files.some((f) => f.example) ? 'The list shows example files. Drop your own files in the box, or keep the examples to practise.' : 'Drop your project files into the box.' }),
+      render: () => {
+        const ex = S.files.some((f) => f.example);
+        return `
+        <header><div class="eyebrow">Step 4</div><h2>Drop your files</h2>
+          <p class="lead">Drag files or a whole folder into the box. Coder for Babies reads them so Claude can check them and so it can write your commit message.</p></header>
+        <label class="drop" id="drop" for="fileIn"><strong>Drop files here</strong><span>or tap to choose files. Folders keep their paths.</span>
+          <input id="fileIn" type="file" multiple class="sr"></label>
+        <div class="row"><label class="btn small" for="dirIn">Choose a folder</label><input id="dirIn" type="file" webkitdirectory multiple class="sr">
+          ${S.files.length ? '<button class="btn small" id="clearFiles" type="button">Remove all</button>' : ''}</div>
+        ${ex ? '<div class="callout tip"><b>Example files.</b> These three files are a practice project with one typo hidden inside. Drop your own files to replace them.</div>' : ''}
+        ${S.type === 'app' ? `<label class="row" style="gap:8px;font-size:14.5px"><input type="checkbox" id="intoWww" ${S.intoWww ? 'checked' : ''}> Put my app files in a <code>www</code> folder (needed for the all-platform build)</label>` : ''}
+        ${fileList()}`;
+      },
+      bind: () => {
+        const drop = $('drop');
+        ['dragenter', 'dragover'].forEach((ev) => drop.addEventListener(ev, (e) => { e.preventDefault(); drop.classList.add('over'); }));
+        ['dragleave', 'drop'].forEach((ev) => drop.addEventListener(ev, () => drop.classList.remove('over')));
+        drop.addEventListener('drop', async (e) => { e.preventDefault(); await addFromDrop(e.dataTransfer); });
+        $('fileIn').addEventListener('change', (e) => addFiles([...e.target.files]));
+        $('dirIn').addEventListener('change', (e) => addFiles([...e.target.files]));
+        if ($('clearFiles')) $('clearFiles').onclick = () => { S.files = []; S.review = null; refresh(); };
+        if ($('intoWww')) $('intoWww').onchange = (e) => { S.intoWww = e.target.checked; refresh(); };
+        bindFileList();
+      },
+    },
+    {
+      id: 'commit', title: 'Commit files to main', short: 'Save them on GitHub', manual: true,
+      gps: () => ({ text: 'GitHub’s upload page opens. Drag the same files in, paste the commit message, press Commit changes.', link: ['Open upload page', GH.upload()], copy: ['Copy commit message', commitMessage()] }),
+      render: () => {
+        const small = S.files.filter((f) => f.text != null && GH.newFile(committedPath(f.path), f.text).length < MAX_URL);
+        return `
+        <header><div class="eyebrow">Step 5</div><h2>Commit your files to <code>main</code></h2>
+          <p class="lead">A commit is a saved snapshot with a note about what changed. Your message is written for you.</p></header>
+        <div class="field"><label for="fMsg">Commit message</label>
+          <div class="row" style="flex-wrap:nowrap"><input id="fMsg" value="${esc(commitMessage())}" readonly><button class="btn small" id="copyMsg" type="button">Copy</button></div></div>
+        <div class="callout info"><b>Easiest way:</b> open the upload page, drag in ${S.type === 'app' && S.intoWww ? 'your <code>www</code> folder' : 'your files'}, paste the message into “Commit changes”, then press the green button.</div>
+        <div class="row"><a class="btn go" href="${esc(GH.upload())}" target="_blank" rel="noopener">Open upload page</a><a class="btn" href="${esc(GH.tree())}" target="_blank" rel="noopener">See files on GitHub</a></div>
+        ${small.length ? `<div class="field"><label>Or commit one file at a time (already typed in for you)</label>
+          <ul class="files">${small.map((f) => `<li><span class="p">${esc(committedPath(f.path))}</span><span class="z">${fmtSize(f.size)}</span><a class="btn small" href="${esc(GH.newFile(committedPath(f.path), f.text))}" target="_blank" rel="noopener">Commit this file</a></li>`).join('')}</ul></div>` : ''}
+        <div class="callout bad"><b>If GitHub shows an error</b> (for example “file already exists” or a red banner), go to step 6. Claude finds the problem file, puts its name in the delete box, and you can fix and recommit it.</div>
+        ${doneButton('commit', 'My files are committed')}`;
+      },
+      bind: () => { $('copyMsg').onclick = () => copy(commitMessage()); },
+    },
+    {
+      id: 'review', title: 'Claude checks your code', short: 'Find and fix errors',
+      isDone: () => approved(),
+      gps: () => approved() ? { text: 'Claude approved this code.' } : (S.review && S.review.issues && S.review.issues.length ? { text: 'Claude found something to fix. Open the first problem, fix the highlighted line, recommit, then check again.' } : { text: 'Ask Claude to read your files. You will be asked once to allow it.', action: ['Check my code', () => { setCurrent('review'); runReview(); }] }),
+      render: renderReview,
+      bind: bindReview,
+    },
+    {
+      id: 'workflow', title: 'Add the build recipe', short: 'Builds every platform', manual: true,
+      gps: () => ({ text: 'This adds one file that tells GitHub how to build your app for every device. GitHub opens with it typed in; press Commit changes.', link: ['Add build recipe', workflowLink()] }),
+      render: renderWorkflow,
+      bind: bindWorkflow,
+    },
+    {
+      id: 'version', title: 'Pick a version and tag', short: 'v1.0.0 and so on', manual: true,
+      gps: () => ({ text: `Your version is ${tag()}. Change it if you like, then confirm.`, action: ['Use ' + tag(), () => { markDone('version'); }] }),
+      render: () => `
+        <header><div class="eyebrow">Step 8</div><h2>Version and tag</h2>
+          <p class="lead">A tag is a name stuck on one exact snapshot of your code, like a label on a jar. Versions count up: bug fix, new feature, big change.</p></header>
+        <div class="grid2">
+          <div class="field"><label for="fVer">Version</label><input id="fVer" value="${esc(S.version)}" spellcheck="false"><span class="hint" id="verHint">Tag: <b>${esc(tag())}</b></span></div>
+          <div class="field"><label>Quick bump</label><div class="row">
+            <button class="btn small" data-bump="patch" type="button">Bug fix</button>
+            <button class="btn small" data-bump="minor" type="button">New feature</button>
+            <button class="btn small" data-bump="major" type="button">Big change</button></div></div>
+        </div>
+        <div class="field"><label for="fNotes">What changed? (goes in the release notes)</label><textarea id="fNotes" rows="3" placeholder="Added a hello button. Fixed a typo.">${esc(S.notes)}</textarea></div>
+        <div class="cmds">${cmd(`git tag -a ${tag()} -m "${S.name} ${tag()}"\ngit push origin ${tag()}`, 'Only if you use the terminal. Otherwise the release page in step 9 makes the tag for you.')}</div>
+        ${doneButton('version', 'Use ' + tag())}`,
+      bind: () => {
+        const upd = () => { $('verHint').innerHTML = semverOk(S.version) ? `Tag: <b>${esc(tag())}</b>` : '<span style="color:var(--berry)">Use three numbers like 1.0.0</span>'; };
+        $('fVer').addEventListener('input', (e) => { S.version = e.target.value.trim().replace(/^v/i, ''); S.done.version = false; upd(); refresh(false); });
+        $('fVer').addEventListener('change', () => refresh());
+        $('fNotes').addEventListener('input', (e) => { S.notes = e.target.value; save(); });
+        document.querySelectorAll('[data-bump]').forEach((b) => b.onclick = () => {
+          const m = (S.version.match(/^(\d+)\.(\d+)\.(\d+)/) || [0, 1, 0, 0]).slice(1).map(Number);
+          if (b.dataset.bump === 'major') { m[0]++; m[1] = 0; m[2] = 0; } else if (b.dataset.bump === 'minor') { m[1]++; m[2] = 0; } else m[2]++;
+          S.version = m.join('.'); S.done.version = false; refresh();
+        });
+      },
+    },
+    {
+      id: 'release', title: 'Publish or pre-release', short: 'Only after Claude approves', manual: true,
+      locked: () => !approved(),
+      gps: () => approved()
+        ? { text: `GitHub opens with ${tag()}, the title and the notes filled in${S.releaseMode === 'prerelease' ? ' and “pre-release” ticked' : ''}. Press Publish release.`, link: [S.releaseMode === 'prerelease' ? 'Open pre-release' : 'Open release', GH.releaseNew()] }
+        : { text: 'Releases unlock after Claude approves your code in step 6.', action: ['Go to step 6', () => setCurrent('review')] },
+      render: () => `
+        <header><div class="eyebrow">Step 9</div><h2>Publish or pre-release</h2>
+          <p class="lead">Publishing a release starts the build recipe from step 7. A pre-release is a test version that is marked “not final”.</p></header>
+        ${approved() ? `<div class="callout good"><b>Approved.</b> ${esc(S.review.summary || 'Claude found no errors.')}</div>`
+          : `<div class="callout bad lock"><b>Locked.</b> Claude has to approve the current files first. ${S.review && S.review.hash !== filesHash() ? 'Your files changed after the last check.' : ''} <button class="btn small" type="button" id="toReview">Go to step 6</button></div>`}
+        <div class="field"><label>Choose</label><div class="radios">
+          <label class="radio"><input type="radio" name="rel" value="prerelease" ${S.releaseMode === 'prerelease' ? 'checked' : ''}><div><b>Pre-release</b><span>For testing. Recommended for your first try.</span></div></label>
+          <label class="radio"><input type="radio" name="rel" value="publish" ${S.releaseMode === 'publish' ? 'checked' : ''}><div><b>Publish</b><span>The real thing. Shown as “Latest”.</span></div></label>
+        </div></div>
+        <div class="field"><label for="fBody">Release notes (filled in for you)</label><textarea id="fBody" rows="7" readonly>${esc(releaseNotes())}</textarea></div>
+        <div class="row"><a class="btn go" href="${esc(GH.releaseNew())}" target="_blank" rel="noopener" ${approved() ? '' : 'aria-disabled="true" tabindex="-1"'}>${S.releaseMode === 'prerelease' ? 'Open pre-release' : 'Open release'} on GitHub</a></div>
+        ${approved() ? doneButton('release', 'I pressed Publish') : ''}`,
+      bind: () => {
+        if ($('toReview')) $('toReview').onclick = () => setCurrent('review');
+        document.querySelectorAll('input[name=rel]').forEach((r) => r.addEventListener('change', () => { S.releaseMode = r.value; refresh(); }));
+      },
+    },
+    {
+      id: 'builds', title: 'Download your installers', short: 'Windows, Mac, Pi, phones', manual: true,
+      gps: () => ({ text: 'The builds take about 15 minutes. Watch them on the Actions page; files appear on the release page when they finish.', link: ['Watch the builds', GH.actions()] }),
+      render: () => `
+        <header><div class="eyebrow">Step 10</div><h2>Your installers</h2>
+          <p class="lead">GitHub builds each one on its own computer. A green tick means done; a red cross means open it and read the first red line.</p></header>
+        <div class="plats">${TYPES[S.type].platforms.map((p) => `<div class="plat"><b>${PLATFORM[p][0]}</b><span>${PLATFORM[p][1]}</span></div>`).join('')}</div>
+        <div class="row"><a class="btn go" href="${esc(GH.actions())}" target="_blank" rel="noopener">Watch the builds</a><a class="btn" href="${esc(GH.releaseTag())}" target="_blank" rel="noopener">Release page ${esc(tag())}</a><a class="btn" href="${esc(GH.releases())}" target="_blank" rel="noopener">All releases</a></div>
+        ${S.type === 'app' ? '<div class="callout tip"><b>Phones:</b> the Android .apk installs after you allow “install unknown apps”. Apple only lets signed apps onto an iPhone, so open the project in Xcode with your Apple ID, or re-sign the .ipa with AltStore or Sideloadly.</div>' : ''}
+        <div class="callout info"><b>Build failed?</b> Fix the file it names, commit again (step 5), let Claude check it (step 6), bump the version to a bug fix (step 8) and release again.</div>
+        ${doneButton('builds', 'I have my files')}`,
+    },
+    {
+      id: 'share', title: 'Share and deploy', short: 'Optional helpers', manual: true, optional: true,
+      gps: () => ({ text: 'You did it. Invite helpers or put your project online with one of these services.', link: ['Invite collaborators', GH.access()] }),
+      render: renderShare,
+    },
+  ];
+
+  /* ---------- file handling ---------- */
+  function fileList() {
+    if (!S.files.length) return '<p class="muted">No files yet.</p>';
+    const bad = new Set(((S.review && S.review.issues) || []).filter((i) => i.severity === 'error').map((i) => i.file));
+    return `<ul class="files" aria-label="Your files">${S.files.map((f, i) => `
+      <li class="${bad.has(f.path) ? 'has-err' : ''}"><span class="p">${esc(committedPath(f.path))} ${f.example ? '<span class="chip ex">example</span>' : ''}${bad.has(f.path) ? ' <span class="chip err">needs a fix</span>' : ''}${f.text == null ? ' <span class="chip ex">not readable</span>' : ''}</span>
+      <span class="z">${fmtSize(f.size)}</span><button class="btn small" type="button" data-rm="${i}" aria-label="Remove ${esc(f.path)}">Remove</button></li>`).join('')}</ul>`;
+  }
+  function bindFileList() { document.querySelectorAll('[data-rm]').forEach((b) => b.onclick = () => { S.files.splice(+b.dataset.rm, 1); refresh(); }); }
+  async function readEntry(entry, prefix, out) {
+    if (entry.isFile) { const f = await new Promise((ok, bad) => entry.file(ok, bad)); f._path = prefix + f.name; out.push(f); }
+    else if (entry.isDirectory) {
+      if (/^(node_modules|\.git|dist|build|target|__pycache__)$/.test(entry.name)) return;
+      const rd = entry.createReader();
+      let batch; do { batch = await new Promise((ok, bad) => rd.readEntries(ok, bad)); for (const e of batch) await readEntry(e, prefix + entry.name + '/', out); } while (batch.length);
+    }
+  }
+  async function addFromDrop(dt) {
+    const items = [...(dt.items || [])].map((it) => it.webkitGetAsEntry && it.webkitGetAsEntry()).filter(Boolean);
+    if (!items.length) return addFiles([...dt.files]);
+    const out = []; for (const e of items) await readEntry(e, '', out);
+    // a single dropped top folder: drop its name so files sit at the repo root
+    const tops = new Set(out.map((f) => f._path.split('/')[0]));
+    if (items.length === 1 && items[0].isDirectory && tops.size === 1) out.forEach((f) => { f._path = f._path.split('/').slice(1).join('/'); });
+    addFiles(out);
+  }
+  async function addFiles(list) {
+    if (!list.length) return;
+    S.files = S.files.filter((f) => !f.example);
+    for (const f of list) {
+      let path = (f._path || f.webkitRelativePath || f.name).replace(/^\/+/, '');
+      if (f.webkitRelativePath && !f._path) path = path.split('/').slice(1).join('/') || f.name;
+      if (/(^|\/)(node_modules|\.git)\//.test(path) || /\.DS_Store$/.test(path)) continue;
+      const isText = TEXT_EXT.has(ext(path)) || /(^|\/)(Dockerfile|Makefile|LICENSE|README)$/i.test(path) || f.type.startsWith('text/');
+      const text = isText && f.size < 1500000 ? await f.text() : null;
+      const i = S.files.findIndex((x) => x.path === path);
+      const rec = { path, size: f.size, text };
+      if (i >= 0) S.files[i] = rec; else S.files.push(rec);
+    }
+    S.files.sort((a, b) => a.path.localeCompare(b.path));
+    S.review = null;
+    toast(`${list.length} file${list.length > 1 ? 's' : ''} added`);
+    refresh();
+  }
+
+  /* ---------- quick checks that run instantly, before Claude ---------- */
+  const TYPOS = { consle: 'console', cosole: 'console', fucntion: 'function', funtion: 'function', retrun: 'return', reutrn: 'return', docuemnt: 'document', documnet: 'document', widnow: 'window', lenght: 'length', heigth: 'height', widht: 'width', adress: 'address', recieve: 'receive', teh: 'the', improt: 'import', pirnt: 'print', esle: 'else', ture: 'true', flase: 'false', nulll: 'null', udnefined: 'undefined', addEventListner: 'addEventListener', getElementByID: 'getElementById', innerHtml: 'innerHTML', ouput: 'output', pubic: 'public', stirng: 'string', calss: 'class', defualt: 'default' };
+  function quickCheck() {
+    const issues = [];
+    for (const f of S.files) {
+      if (f.text == null) continue;
+      const lines = f.text.split('\n'), e = ext(f.path);
+      lines.forEach((ln, i) => {
+        if (/^(<{7}|={7}|>{7})( |$)/.test(ln)) issues.push({ file: f.path, line: i + 1, severity: 'error', what: 'Leftover merge-conflict marker. Delete this line and keep the version you want.', fixLine: null });
+        for (const m of ln.matchAll(/[A-Za-z]+/g)) {
+          const w = m[0];
+          if (TYPOS[w] && !/^(md|txt)$/.test(e)) issues.push({ file: f.path, line: i + 1, severity: 'error', what: `“${w}” looks like a typo for “${TYPOS[w]}”.`, fixLine: ln.replace(new RegExp('\\b' + w + '\\b'), TYPOS[w]) });
+        }
+        if (/(AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{40,}|sk-[A-Za-z0-9-]{20,}|-----BEGIN (RSA |EC )?PRIVATE KEY)/.test(ln)) issues.push({ file: f.path, line: i + 1, severity: 'error', what: 'This looks like a secret key or password. Never commit it; put it in GitHub Secrets instead.', fixLine: null });
+        if (/^(ya?ml)$/.test(e) && /^\t/.test(ln)) issues.push({ file: f.path, line: i + 1, severity: 'error', what: 'YAML files cannot use tabs to indent. Use spaces.', fixLine: ln.replace(/^\t+/, (t) => '  '.repeat(t.length)) });
+      });
+      if (e === 'json') {
+        try { JSON.parse(f.text); } catch (err) {
+          const pos = +((String(err.message).match(/position (\d+)/) || [])[1] || 0);
+          const line = f.text.slice(0, pos).split('\n').length;
+          issues.push({ file: f.path, line, severity: 'error', what: 'This JSON file is broken: ' + String(err.message).replace(/^JSON\.parse: /, '') + '. Look for a missing comma or quote.', fixLine: null });
+        }
+      }
+    }
+    return issues;
+  }
+
+  /* ---------- Claude review ---------- */
+  let samplePromise = null, reviewCtl = null, reviewBusy = false, fixSel = null;
+  function getSample() { if (!samplePromise) samplePromise = (window.claude && window.claude.use) ? window.claude.use('sample').catch(() => null) : Promise.resolve(null); return samplePromise; }
+  function reviewPrompt() {
+    let budget = 150000;
+    const parts = [];
+    for (const f of S.files) {
+      if (f.text == null) { parts.push(`=== ${f.path} (binary or too large, not shown) ===`); continue; }
+      const numbered = f.text.split('\n').map((l, i) => `${i + 1}| ${l}`).join('\n');
+      const chunk = numbered.length > budget ? numbered.slice(0, Math.max(0, budget)) + '\n[... cut for length]' : numbered;
+      budget -= chunk.length; parts.push(`=== ${f.path} ===\n${chunk}`);
+      if (budget <= 0) break;
+    }
+    return `You are the code checker inside "Coder for Babies", a tool for complete beginners. Review these files before they publish a GitHub release.
+Project: ${S.name} (${TYPES[S.type].label}). ${S.desc}
+Report REAL problems only: syntax errors, typos in keywords or names, references to files or ids that do not exist among the files, broken JSON/YAML/TOML, obvious crashes, and committed secrets. Ignore style and formatting preferences. Explain each problem in one short sentence a beginner understands.
+Reply with only JSON in this exact shape:
+{"verdict":"pass" or "fail","summary":"one plain sentence about the code","issues":[{"file":"path exactly as shown","line":12,"severity":"error" or "warning","what":"plain explanation","fixLine":"the full corrected text of that one line, or null"}]}
+"verdict" is "pass" only when there are no "error" issues. Line numbers are the numbers before "|".
+
+${parts.join('\n\n')}`;
+  }
+  async function runReview() {
+    if (reviewBusy || !S.files.length) return;
+    reviewBusy = true; refresh();
+    const quick = quickCheck();
+    const sample = await getSample();
+    if (!sample) {
+      S.review = { source: 'quick', verdict: quick.some((i) => i.severity === 'error') ? 'fail' : 'needs-claude', summary: quick.length ? 'Quick check found problems.' : 'Quick check found nothing. Claude is not available here, so the release stays locked until Claude can check.', issues: quick, hash: filesHash(), at: Date.now() };
+      reviewBusy = false; afterReview(); return;
+    }
+    reviewCtl = new AbortController();
+    S.review = { source: 'claude', verdict: 'working', summary: 'Claude is reading your files…', issues: quick, hash: filesHash(), at: Date.now() };
+    refresh();
+    try {
+      const r = await sample.json(reviewPrompt(), { signal: reviewCtl.signal, cache: false });
+      const issues = (Array.isArray(r && r.issues) ? r.issues : []).filter((i) => i && i.file).map((i) => ({ file: String(i.file), line: Math.max(1, parseInt(i.line, 10) || 1), severity: i.severity === 'warning' ? 'warning' : 'error', what: String(i.what || ''), fixLine: typeof i.fixLine === 'string' ? i.fixLine : null }));
+      // keep instant-check errors Claude did not mention
+      for (const q of quick) if (!issues.some((i) => i.file === q.file && i.line === q.line)) issues.push(q);
+      const hasErr = issues.some((i) => i.severity === 'error');
+      S.review = { source: 'claude', verdict: hasErr ? 'fail' : 'pass', summary: String((r && r.summary) || ''), issues, hash: filesHash(), at: Date.now() };
+    } catch (e) {
+      const why = { not_granted: 'You did not allow Claude to read the files. Press Check my code again to allow it.', sampling_disabled: 'Claude is turned off for this account.', rate_limited: 'Claude is busy. Wait a minute and try again.', cancelled: 'Stopped.', invalid_json: 'Claude’s answer came back jumbled. Press Check my code to try again.', prompt_too_large: 'Too many files to read at once. Remove big files you do not need checked.' }[e && e.code] || 'Claude could not finish the check. Try again.';
+      S.review = { source: 'quick', verdict: quick.some((i) => i.severity === 'error') ? 'fail' : 'needs-claude', summary: why, issues: quick, hash: filesHash(), at: Date.now() };
+      if (e && e.code === 'not_granted') samplePromise = null;
+    }
+    reviewBusy = false; afterReview();
+  }
+  function afterReview() {
+    const first = S.review.issues.find((i) => i.severity === 'error') || S.review.issues[0];
+    fixSel = first ? S.review.issues.indexOf(first) : null;
+    if (S.review.verdict === 'pass') toast('Claude approved your code');
+    refresh();
+  }
+  function renderReview() {
+    const r = S.review, stale = r && r.hash !== filesHash();
+    let status = '';
+    if (reviewBusy || (r && r.verdict === 'working')) status = `<div class="callout info"><b>Checking…</b> Claude is reading ${S.files.length} file${S.files.length > 1 ? 's' : ''}. This can take up to a minute. <button class="btn small" id="stopReview" type="button">Stop</button></div>`;
+    else if (!r) status = '<div class="callout info"><b>Ready.</b> Press Check my code. The first time, you will be asked to let Claude read these files.</div>';
+    else if (stale) status = '<div class="callout tip"><b>Files changed</b> since the last check. Check again to unlock the release.</div>';
+    else if (r.verdict === 'pass') status = `<div class="callout good"><b>Approved by Claude.</b> ${esc(r.summary)}</div>`;
+    else if (r.verdict === 'needs-claude') status = `<div class="callout tip"><b>Not approved yet.</b> ${esc(r.summary)}</div>`;
+    else status = `<div class="callout bad"><b>${r.issues.filter((i) => i.severity === 'error').length} thing${r.issues.filter((i) => i.severity === 'error').length === 1 ? '' : 's'} to fix.</b> ${esc(r.summary)}</div>`;
+    const issues = r && !reviewBusy && r.verdict !== 'working' ? r.issues : [];
+    return `
+      <header><div class="eyebrow">Step 6</div><h2>Claude checks your code</h2>
+        <p class="lead">Claude reads every file and points at the exact line of any mistake. Nothing is released until Claude says the code passes.</p></header>
+      <div class="row"><button class="btn go" id="runReview" type="button" ${reviewBusy || !S.files.length ? 'disabled' : ''}>${r ? 'Check again' : 'Check my code'}</button>
+        <span class="muted" style="font-size:14px">${S.files.length} file${S.files.length === 1 ? '' : 's'} ready</span></div>
+      ${status}
+      ${issues.length ? `<div class="issues" role="list">${issues.map((i, n) => `<button class="issue ${i.severity}" role="listitem" type="button" data-issue="${n}" aria-pressed="${n === fixSel}">
+          <span class="chip ${i.severity === 'error' ? 'err' : 'warn'}">${i.severity === 'error' ? 'Fix' : 'Tip'}</span>
+          <span><span class="where">${esc(i.file)} · line ${i.line}</span><br>${esc(i.what)}</span><span aria-hidden="true">›</span></button>`).join('')}</div>` : ''}
+      ${fixSel != null && issues[fixSel] ? renderFixBox(issues[fixSel]) : ''}`;
+  }
+  function renderFixBox(issue) {
+    const f = S.files.find((x) => x.path === issue.file);
+    if (!f || f.text == null) return `<div class="fixbox"><h3>Fix ${esc(issue.file)}</h3><p>This file is not in your list, or it cannot be read here. Open it on GitHub to fix it.</p><div class="row"><a class="btn go" href="${esc(GH.edit(committedPath(issue.file)))}" target="_blank" rel="noopener">Edit on GitHub</a></div></div>`;
+    const p = committedPath(f.path);
+    const newLink = GH.newFile(p, f.text);
+    const tooLong = newLink.length >= MAX_URL;
+    return `<section class="fixbox" aria-label="Fix box">
+      <h3>Fix box</h3>
+      <div class="grid2">
+        <div class="field"><label for="delBox">Delete box: file to replace</label><input id="delBox" value="${esc(p)}" readonly></div>
+        <div class="field"><label>Problem</label><div style="font-size:14.5px"><b>Line ${issue.line}.</b> ${esc(issue.what)}</div></div>
+      </div>
+      <div class="editor"><pre class="gutter" id="gutter" aria-hidden="true"></pre><textarea id="fixText" spellcheck="false" aria-label="Edit ${esc(p)}">${esc(f.text)}</textarea></div>
+      <div class="row">
+        ${issue.fixLine != null ? '<button class="btn sun" id="applyFix" type="button">Apply suggested fix</button>' : ''}
+        <button class="btn" id="saveFix" type="button">Save my edit</button>
+      </div>
+      <div class="callout info"><b>Recommit in two clicks.</b> 1: delete the old file on GitHub. 2: commit the fixed one. Then press Check again.</div>
+      <div class="row">
+        <a class="btn warn" href="${esc(GH.del(p))}" target="_blank" rel="noopener">1. Delete ${esc(p.split('/').pop())}</a>
+        ${tooLong ? `<a class="btn go" href="${esc(GH.edit(p))}" target="_blank" rel="noopener">2. Edit on GitHub</a><button class="btn" id="copyFixed" type="button">Copy fixed code</button>`
+          : `<a class="btn go" id="recommit" href="${esc(newLink)}" target="_blank" rel="noopener">2. Recommit fixed file</a>`}
+      </div>
+      ${tooLong ? '<p class="muted" style="margin:0;font-size:13.5px">This file is too long to send in a link. Skip step 1, open it in GitHub’s editor, select all, paste the fixed code and commit.</p>' : ''}
+    </section>`;
+  }
+  function bindReview() {
+    if ($('runReview')) $('runReview').onclick = runReview;
+    if ($('stopReview')) $('stopReview').onclick = () => reviewCtl && reviewCtl.abort();
+    document.querySelectorAll('[data-issue]').forEach((b) => b.onclick = () => { fixSel = +b.dataset.issue; render(); const ta = $('fixText'); if (ta) ta.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); });
+    const ta = $('fixText'); if (!ta) return;
+    const issue = S.review.issues[fixSel];
+    const g = $('gutter');
+    const paintGutter = () => { const n = ta.value.split('\n').length; g.innerHTML = Array.from({ length: n }, (_, i) => `<span class="${i + 1 === issue.line ? 'hot' : ''}">${i + 1}</span>`).join(''); g.scrollTop = ta.scrollTop; };
+    paintGutter();
+    ta.addEventListener('scroll', () => { g.scrollTop = ta.scrollTop; });
+    ta.addEventListener('input', paintGutter);
+    // select the problem line so it is highlighted and in view
+    const lines = ta.value.split('\n'); const start = lines.slice(0, issue.line - 1).join('\n').length + (issue.line > 1 ? 1 : 0); const end = start + (lines[issue.line - 1] || '').length;
+    requestAnimationFrame(() => { ta.focus({ preventScroll: true }); ta.setSelectionRange(start, end); ta.scrollTop = Math.max(0, (issue.line - 4) * 20.8); g.scrollTop = ta.scrollTop; });
+    const f = S.files.find((x) => x.path === issue.file);
+    const commitEdit = (text, msg) => {
+      f.text = text; f.size = new Blob([text]).size; f.example = false;
+      S.review.issues = S.review.issues.filter((i) => i !== issue);
+      if (S.review.issues.every((i) => i.severity !== 'error')) fixSel = null; else fixSel = S.review.issues.findIndex((i) => i.severity === 'error');
+      toast(msg); refresh();
+    };
+    if ($('applyFix')) $('applyFix').onclick = () => { const ls = ta.value.split('\n'); ls[issue.line - 1] = issue.fixLine; commitEdit(ls.join('\n'), 'Fix applied. Now recommit, then check again.'); };
+    $('saveFix').onclick = () => commitEdit(ta.value, 'Edit saved. Now recommit, then check again.');
+    if ($('copyFixed')) $('copyFixed').onclick = () => copy(ta.value);
+    if ($('recommit')) $('recommit').addEventListener('click', () => { const nt = ta.value; if (nt !== f.text) { f.text = nt; f.size = new Blob([nt]).size; save(); } $('recommit').href = GH.newFile(committedPath(f.path), f.text); });
+  }
+
+  /* ---------- build recipe ---------- */
+  function workflowText() {
+    return document.getElementById(TYPES[S.type].tpl).textContent.replace(/__SLUG__/g, S.repo || 'app');
+  }
+  function workflowLink() { return GH.newFile('.github/workflows/build.yml', workflowText()); }
+  function starterFiles() {
+    if (S.type === 'app') {
+      const pkg = { name: S.repo, productName: S.name, version: S.version, description: S.desc, main: 'electron/main.js', author: { name: S.owner || 'me', email: 'you@example.com' },
+        scripts: { start: 'electron .' },
+        build: { appId: `com.${slug(S.owner || 'me').replace(/[^a-z0-9]/g, '') || 'me'}.${S.repo.replace(/[^a-z0-9]/g, '') || 'app'}`, productName: S.name, files: ['electron/**', 'www/**'], linux: { target: ['AppImage', 'deb'], category: 'Utility' }, win: { target: ['nsis'] }, mac: { target: ['dmg'], identity: null } },
+        devDependencies: { electron: '^33.2.1', 'electron-builder': '^25.1.8', '@capacitor/cli': '^7.0.0', '@capacitor/core': '^7.0.0', '@capacitor/android': '^7.0.0', '@capacitor/ios': '^7.0.0' } };
+      return [
+        ['package.json', JSON.stringify(pkg, null, 2) + '\n', 'Tells the builder your app’s name, version and what to package.'],
+        ['electron/main.js', "const { app, BrowserWindow } = require('electron');\nconst path = require('path');\n\napp.whenReady().then(() => {\n  const win = new BrowserWindow({ width: 1200, height: 800, autoHideMenuBar: true });\n  win.loadFile(path.join(__dirname, '..', 'www', 'index.html'));\n});\napp.on('window-all-closed', () => app.quit());\n", 'Opens your www/index.html in a desktop window.'],
+        ['capacitor.config.json', JSON.stringify({ appId: pkg.build.appId, appName: S.name, webDir: 'www' }, null, 2) + '\n', 'Turns the same www folder into the Android and iPhone apps.'],
+      ];
+    }
+    if (S.type === 'rust') return [['Cargo.toml', `[package]\nname = "${S.repo}"\nversion = "${S.version}"\nedition = "2021"\n\n[dependencies]\n`, 'Only if you do not have one yet. The name must match your program.'], ['src/main.rs', 'fn main() {\n    println!("Hello from ' + S.name.replace(/"/g, '') + '!");\n}\n', 'A starter program, only if you have none.']];
+    if (S.type === 'python') return [['main.py', `print("Hello from ${S.name.replace(/"/g, '')}!")\n`, 'Only if you have no main.py yet. The build starts here.'], ['requirements.txt', '', 'List extra packages here, one per line.']];
+    return [];
+  }
+  function renderWorkflow() {
+    const t = TYPES[S.type], link = workflowLink();
+    const starters = starterFiles();
+    return `
+      <header><div class="eyebrow">Step 7</div><h2>Add the build recipe</h2>
+        <p class="lead">GitHub Actions follows a recipe file to build ${S.type === 'web' ? 'and publish your website' : 'your app on Windows, Mac and Linux computers it lends you for free'}. This one makes:</p></header>
+      <div class="plats">${t.platforms.map((p) => `<div class="plat"><b>${PLATFORM[p][0]}</b><span>${PLATFORM[p][1]}</span></div>`).join('')}</div>
+      <div class="row"><a class="btn go" href="${esc(link)}" target="_blank" rel="noopener">Add build recipe to GitHub</a><button class="btn" id="copyWf" type="button">Copy recipe</button><a class="btn" href="${esc(GH.actions())}" target="_blank" rel="noopener">Open Actions</a></div>
+      ${link.length >= MAX_URL ? '<div class="callout tip"><b>Long recipe.</b> If GitHub opens an empty file, press Copy recipe and paste it in.</div>' : ''}
+      ${starters.length ? `<div class="field"><label>Starter files the recipe needs (skip any you already have)</label>
+        <ul class="files">${starters.map(([p, txt, why]) => `<li><span class="p">${esc(p)}<br><span class="muted" style="font-family:var(--font-body);font-size:13px">${esc(why)}</span></span><span></span><a class="btn small" href="${esc(GH.newFile(p, txt))}" target="_blank" rel="noopener">Commit</a></li>`).join('')}</ul></div>` : ''}
+      ${S.type === 'web' ? `<div class="callout tip"><b>One more switch:</b> in <a href="${esc(GH.pages())}" target="_blank" rel="noopener">Settings → Pages</a> set Source to “GitHub Actions”.</div>` : ''}
+      <details><summary>See the recipe</summary><pre class="code">${esc(workflowText())}</pre></details>
+      ${doneButton('workflow', 'Recipe is committed')}`;
+  }
+  function bindWorkflow() { $('copyWf').onclick = () => copy(workflowText()); }
+
+  /* ---------- share / collaborators ---------- */
+  function renderShare() {
+    const url = `https://github.com/${S.owner || 'YOUR-NAME'}/${S.repo}`;
+    const svc = [
+      ['Invite collaborators', 'Let friends push code and review yours.', GH.access()],
+      ['Open in Codespaces', 'A full code editor in your browser, no install.', `https://codespaces.new/${enc(S.owner || 'YOUR-NAME')}/${enc(S.repo)}`],
+      ['GitHub Pages', 'Free website hosting from this repository.', GH.pages()],
+      ['Cloudflare Pages', 'Fast global hosting. Connect GitHub, pick this repo.', 'https://dash.cloudflare.com/?to=/:account/pages/new/provider/github'],
+      ['Render', 'Hosts web servers and APIs. Needs a render.yaml file.', 'https://render.com/deploy?repo=' + enc(url)],
+      ['Vercel', 'One-click deploy for websites and Next.js.', 'https://vercel.com/new/clone?repository-url=' + enc(url)],
+      ['Netlify', 'Drag-free deploys straight from this repo.', 'https://app.netlify.com/start/deploy?repository=' + enc(url)],
+      ['crates.io', 'Publish a Rust library. Make a token first.', 'https://crates.io/settings/tokens'],
+      ['Secrets', 'Store signing keys and tokens safely, never in code.', GH.secrets()],
+    ];
+    return `
+      <header><div class="eyebrow">Step 11 · optional</div><h2>Share and deploy</h2>
+        <p class="lead">Each button opens the right page with your repository already chosen where the service allows it.</p></header>
+      <div class="svc">${svc.map(([n, d, u]) => `<a href="${esc(u)}" target="_blank" rel="noopener"><b>${n}</b><span>${d}</span></a>`).join('')}</div>
+      <div class="callout good"><b>Finished route.</b> For the next version: drop changed files (step 4), commit (5), Claude check (6), bump the version (8), release (9).</div>
+      ${doneButton('share', 'All done')}`;
+  }
+
+  /* ---------- git toolbox ---------- */
+  function cmd(code, what, web) { return `<div class="cmd"><code>${esc(code)}</code><button class="btn small" type="button" data-copy="${esc(code)}">Copy</button><p>${what}</p>${web ? `<span class="web">${web}</span>` : ''}</div>`; }
+  function renderToolbox() {
+    const g = GH.git(), msg = commitMessage().replace(/"/g, "'");
+    const a = (u, t) => `On GitHub: <a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>`;
+    $('toolboxBody').innerHTML = `<p class="muted" style="margin-top:0">For people who use a terminal. Every command already has your project’s names in it.</p><div class="cmds">
+      ${cmd('git init -b main', 'Start tracking a folder. Run once, inside your project folder.')}
+      ${cmd('git add .', 'Pick up every changed file for the next snapshot.')}
+      ${cmd(`git commit -m "${msg}"`, 'Save the snapshot with a note.', a(GH.commits(), 'see your commits'))}
+      ${cmd(`git remote add origin ${g}`, 'Connect your folder to the GitHub repository. Run once.')}
+      ${cmd(`git push -u origin ${S.branch}`, 'Send your commits up to GitHub.', a(GH.tree(), 'see the file tree'))}
+      ${cmd(`git tag -a ${tag()} -m "${S.name} ${tag()}"\ngit push origin ${tag()}`, 'Label this snapshot with a version and send the label up.', a(GH.tags(), 'see tags'))}
+      ${cmd('git restore app.js', 'Throw away unsaved changes to one file and go back to the last commit. Change app.js to your file.')}
+      ${cmd('git reset --soft HEAD~1', 'Undo the last commit but keep your work, so you can fix it and commit again. Use this before you push.')}
+      ${cmd('git switch -c fix-typo', 'Make a side branch to try a fix without touching main.', a(GH.branches(), 'see branches'))}
+      ${cmd(`git switch ${S.branch}\ngit merge fix-typo`, 'Bring the fix from the side branch back into main.', a(GH.compare(), 'compare and merge with a pull request'))}
+      ${cmd('git log --oneline --graph --all', 'Draw the tree of every commit and branch.', a(GH.commits(), 'commit history'))}
+      ${cmd('git status', 'Ask Git what changed. Use it whenever you are lost.')}
+    </div>`;
+    document.querySelectorAll('[data-copy]').forEach((b) => b.onclick = () => copy(b.dataset.copy));
+  }
+
+  /* =========================================================
+     ENGINE: route, GPS, panel
+     ========================================================= */
+  function doneButton(id, label) {
+    const d = !!S.done[id];
+    return `<div class="row"><button class="btn ${d ? 'done' : ''}" type="button" data-done="${id}" aria-pressed="${d}">${d ? '✓ Done' : label}</button>${d ? '<span class="muted" style="font-size:14px">Tap again to undo</span>' : ''}</div>`;
+  }
+  const isDone = (s) => (s.manual ? !!S.done[s.id] : s.isDone());
+  function nextStep() { return STEPS.find((s) => !isDone(s) && !s.optional) || STEPS.find((s) => !isDone(s)) || STEPS[STEPS.length - 1]; }
+  function markDone(id, val = true) {
+    S.done[id] = val;
+    if (val) { const nx = nextStep(); S.current = nx.id; toast('Nice! Next: ' + nx.title); }
+    refresh();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  function setCurrent(id) { S.current = id; refresh(); }
+
+  function renderRoute() {
+    const nx = nextStep();
+    $('route').innerHTML = STEPS.map((s, i) => {
+      const d = isDone(s), locked = s.locked && s.locked();
+      return `<button type="button" class="stop ${d ? 'is-done' : ''} ${s === nx && !d ? 'is-next' : ''}" data-step="${s.id}" ${S.current === s.id ? 'aria-current="step"' : ''}>
+        <span class="n">${d ? '✓' : i + 1}</span><span style="min-width:0"><span class="t">${s.title}</span><br><span class="s">${s.short}</span></span>
+        <span class="tag">${locked ? 'locked' : s === nx && !d ? 'next' : ''}</span></button>`;
+    }).join('');
+    document.querySelectorAll('[data-step]').forEach((b) => b.onclick = () => setCurrent(b.dataset.step));
+    const doneCount = STEPS.filter((s) => !s.optional && isDone(s)).length, total = STEPS.filter((s) => !s.optional).length;
+    $('progBar').style.width = (doneCount / total * 100) + '%';
+    $('progTxt').textContent = doneCount >= total ? 'Route complete' : `Step ${STEPS.indexOf(nx) + 1} of ${STEPS.length} · ${total - doneCount} to go`;
+  }
+  function renderGps() {
+    const nx = nextStep(), g = nx.gps();
+    const allDone = STEPS.filter((s) => !s.optional).every(isDone);
+    $('gpsLbl').textContent = allDone ? 'You have arrived' : `Next turn · step ${STEPS.indexOf(nx) + 1}`;
+    $('gpsTitle').textContent = nx.title;
+    $('gpsText').textContent = g.text;
+    const acts = [];
+    if (g.link) acts.push(`<a class="btn go" href="${esc(g.link[1])}" target="_blank" rel="noopener" data-gpslink>${esc(g.link[0])} <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 17 17 7M9 7h8v8" stroke="currentColor" stroke-width="2.6" fill="none"/></svg></a>`);
+    if (g.action) acts.push(`<button class="btn go" type="button" id="gpsAction">${esc(g.action[0])}</button>`);
+    if (g.copy) acts.push(`<button class="btn" type="button" id="gpsCopy">${esc(g.copy[0])}</button>`);
+    if (nx.manual && !(nx.locked && nx.locked()) && nx.id !== 'version') acts.push(`<button class="btn" type="button" id="gpsDone">I did it</button>`);
+    if (S.current !== nx.id) acts.push(`<button class="btn" type="button" id="gpsShow">Show me</button>`);
+    $('gpsActs').innerHTML = acts.join('');
+    if ($('gpsAction')) $('gpsAction').onclick = g.action[1];
+    if ($('gpsCopy')) $('gpsCopy').onclick = () => copy(g.copy[1]);
+    if ($('gpsDone')) $('gpsDone').onclick = () => markDone(nx.id);
+    if ($('gpsShow')) $('gpsShow').onclick = () => setCurrent(nx.id);
+  }
+  function render() {
+    const s = STEPS.find((x) => x.id === S.current) || nextStep();
+    const active = document.activeElement && document.activeElement.id;
+    const sel = active && document.activeElement.selectionStart;
+    $('panel').innerHTML = s.render();
+    if (s.bind) s.bind();
+    document.querySelectorAll('[data-done]').forEach((b) => b.onclick = () => markDone(b.dataset.done, !S.done[b.dataset.done]));
+    if (active && $(active) && /^(INPUT|TEXTAREA)$/.test($(active).tagName) && active !== 'fixText') { $(active).focus(); try { $(active).setSelectionRange(sel, sel); } catch (e) { /* not a text field */ } }
+  }
+  function refresh(full = true) {
+    save(); renderRoute(); renderGps(); renderToolbox();
+    if (full) render();
+  }
+
+  if (!S.current) S.current = nextStep().id;
+  refresh();
+})();
+</script>
+
+</body>
+</html>
